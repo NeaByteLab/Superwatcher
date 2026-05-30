@@ -1,7 +1,7 @@
 {
   "name": "@neabyte/superwatcher",
   "description": "Zero-dependency Deno file watcher with debounced batch event callbacks",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "license": "MIT",
   "exports": "./src/index.ts",
