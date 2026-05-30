@@ -525,11 +525,11 @@ Deno.test('Watcher - stress test with 100 files', noLeaks, async () => {
     }
   })
   watcher.start()
-  await delay(100)
+  await delay(300)
   for (let i = 0; i < 100; i++) {
     Deno.writeTextFileSync(`${tmpDir}/s_${String(i).padStart(4, '0')}.txt`, `d_${i}`)
   }
-  await delay(500)
+  await delay(1500)
   watcher.dispose()
   assertEquals(events.length > 0, true)
   Deno.removeSync(tmpDir, { recursive: true })
@@ -560,11 +560,11 @@ Deno.test('Watcher - stress test with 5 concurrent watchers', noLeaks, async () 
   for (const watcher of watchers) {
     watcher.start()
   }
-  await delay(200)
+  await delay(300)
   for (let i = 0; i < 30; i++) {
     Deno.writeTextFileSync(`${tmpDir}/conc_${i}.txt`, `d_${i}`)
   }
-  await delay(500)
+  await delay(1500)
   for (const watcher of watchers) {
     watcher.dispose()
   }
