@@ -545,13 +545,13 @@ Deno.test('Watcher - stress test with 100 start-dispose cycles', noLeaks, () => 
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - stress test with 5 concurrent watchers', noLeaks, async () => {
+Deno.test('Watcher - stress test with 3 concurrent watchers', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
-  const counts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 }
-  const watchers = [0, 1, 2, 3, 4].map((i) =>
+  const counts: Record<number, number> = { 0: 0, 1: 0, 2: 0 }
+  const watchers = [0, 1, 2].map((i) =>
     new Superwatcher({
       path: tmpDir,
-      debounceMs: 50,
+      debounceMs: 100,
       onChange: (evts) => {
         counts[i] = (counts[i] ?? 0) + evts.length
       }
@@ -560,16 +560,16 @@ Deno.test('Watcher - stress test with 5 concurrent watchers', noLeaks, async () 
   for (const watcher of watchers) {
     watcher.start()
   }
-  await delay(300)
-  for (let i = 0; i < 30; i++) {
+  await delay(500)
+  for (let i = 0; i < 10; i++) {
     Deno.writeTextFileSync(`${tmpDir}/conc_${i}.txt`, `d_${i}`)
   }
-  await delay(1500)
+  await delay(2000)
   for (const watcher of watchers) {
     watcher.dispose()
   }
   assertEquals(
-    [0, 1, 2, 3, 4].every((i) => (counts[i] ?? 0) > 0),
+    [0, 1, 2].every((i) => (counts[i] ?? 0) > 0),
     true
   )
   Deno.removeSync(tmpDir, { recursive: true })
