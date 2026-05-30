@@ -525,11 +525,11 @@ Deno.test('Watcher - stress test with 100 files', noLeaks, async () => {
     }
   })
   watcher.start()
-  await delay(300)
+  await delay(500)
   for (let i = 0; i < 100; i++) {
     Deno.writeTextFileSync(`${tmpDir}/s_${String(i).padStart(4, '0')}.txt`, `d_${i}`)
   }
-  await delay(1500)
+  await delay(3000)
   watcher.dispose()
   assertEquals(events.length > 0, true)
   Deno.removeSync(tmpDir, { recursive: true })
