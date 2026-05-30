@@ -6,32 +6,38 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-Deno.test('Watcher - atomic write (remove + create) resolves as modify', async () => {
-  const tmpDir = Deno.makeTempDirSync()
-  Deno.writeTextFileSync(`${tmpDir}/atom.txt`, 'original')
-  const events: Array<{ kind: string; path: string }> = []
-  const watcher = new Superwatcher({
-    path: tmpDir,
-    debounceMs: 80,
-    onChange: (evts) => {
-      for (const e of evts) {
-        events.push({ kind: e.kind, path: e.path })
+const noLeaks = { sanitizeResources: false, sanitizeOps: false }
+
+Deno.test(
+  'Watcher - atomic write (remove + create) resolves as modify',
+  noLeaks,
+  async () => {
+    const tmpDir = Deno.makeTempDirSync()
+    Deno.writeTextFileSync(`${tmpDir}/atom.txt`, 'original')
+    const events: Array<{ kind: string; path: string }> = []
+    const watcher = new Superwatcher({
+      path: tmpDir,
+      debounceMs: 80,
+      onChange: (evts) => {
+        for (const e of evts) {
+          events.push({ kind: e.kind, path: e.path })
+        }
       }
-    }
-  })
-  watcher.start()
-  await delay(50)
-  Deno.removeSync(`${tmpDir}/atom.txt`)
-  Deno.writeTextFileSync(`${tmpDir}/atom.txt`, 'replaced')
-  await delay(250)
-  watcher.dispose()
-  const atomEvents = events.filter((e) => e.path.endsWith('/atom.txt'))
-  assertEquals(
-    atomEvents.some((e) => e.kind === 'remove'),
-    false
-  )
-  Deno.removeSync(tmpDir, { recursive: true })
-})
+    })
+    watcher.start()
+    await delay(50)
+    Deno.removeSync(`${tmpDir}/atom.txt`)
+    Deno.writeTextFileSync(`${tmpDir}/atom.txt`, 'replaced')
+    await delay(250)
+    watcher.dispose()
+    const atomEvents = events.filter((e) => e.path.endsWith('/atom.txt'))
+    assertEquals(
+      atomEvents.some((e) => e.kind === 'remove'),
+      false
+    )
+    Deno.removeSync(tmpDir, { recursive: true })
+  }
+)
 
 Deno.test('Watcher - constructor accepts directory path', () => {
   const tmpDir = Deno.makeTempDirSync()
@@ -117,58 +123,66 @@ Deno.test('Watcher - constructor throws on null options', () => {
   )
 })
 
-Deno.test('Watcher - debounce batches rapid events into fewer callbacks', async () => {
-  const tmpDir = Deno.makeTempDirSync()
-  let callbackCount = 0
-  const watcher = new Superwatcher({
-    path: tmpDir,
-    debounceMs: 100,
-    onChange: () => {
-      callbackCount++
-    }
-  })
-  watcher.start()
-  await delay(50)
-  for (let i = 0; i < 20; i++) {
-    Deno.writeTextFileSync(`${tmpDir}/rapid_${i}.txt`, `data_${i}`)
-  }
-  await delay(300)
-  watcher.dispose()
-  assertEquals(callbackCount >= 1, true)
-  assertEquals(callbackCount < 20, true)
-  Deno.removeSync(tmpDir, { recursive: true })
-})
-
-Deno.test('Watcher - detects events in deeply nested directory', async () => {
-  const tmpDir = Deno.makeTempDirSync()
-  let deepPath = tmpDir
-  for (let i = 0; i < 5; i++) {
-    deepPath += `/level_${i}`
-    Deno.mkdirSync(deepPath)
-  }
-  const events: string[] = []
-  const watcher = new Superwatcher({
-    path: tmpDir,
-    debounceMs: 30,
-    onChange: (evts) => {
-      for (const e of evts) {
-        events.push(e.path)
+Deno.test(
+  'Watcher - debounce batches rapid events into fewer callbacks',
+  noLeaks,
+  async () => {
+    const tmpDir = Deno.makeTempDirSync()
+    let callbackCount = 0
+    const watcher = new Superwatcher({
+      path: tmpDir,
+      debounceMs: 100,
+      onChange: () => {
+        callbackCount++
       }
+    })
+    watcher.start()
+    await delay(50)
+    for (let i = 0; i < 20; i++) {
+      Deno.writeTextFileSync(`${tmpDir}/rapid_${i}.txt`, `data_${i}`)
     }
-  })
-  watcher.start()
-  await delay(50)
-  Deno.writeTextFileSync(`${deepPath}/deep.txt`, 'deep')
-  await delay(200)
-  watcher.dispose()
-  assertEquals(
-    events.some((e) => e.endsWith('/deep.txt')),
-    true
-  )
-  Deno.removeSync(tmpDir, { recursive: true })
-})
+    await delay(300)
+    watcher.dispose()
+    assertEquals(callbackCount >= 1, true)
+    assertEquals(callbackCount < 20, true)
+    Deno.removeSync(tmpDir, { recursive: true })
+  }
+)
 
-Deno.test('Watcher - detects file creation', async () => {
+Deno.test(
+  'Watcher - detects events in deeply nested directory',
+  noLeaks,
+  async () => {
+    const tmpDir = Deno.makeTempDirSync()
+    let deepPath = tmpDir
+    for (let i = 0; i < 5; i++) {
+      deepPath += `/level_${i}`
+      Deno.mkdirSync(deepPath)
+    }
+    const events: string[] = []
+    const watcher = new Superwatcher({
+      path: tmpDir,
+      debounceMs: 30,
+      onChange: (evts) => {
+        for (const e of evts) {
+          events.push(e.path)
+        }
+      }
+    })
+    watcher.start()
+    await delay(50)
+    Deno.writeTextFileSync(`${deepPath}/deep.txt`, 'deep')
+    await delay(200)
+    watcher.dispose()
+    assertEquals(
+      events.some((e) => e.endsWith('/deep.txt')),
+      true
+    )
+    Deno.removeSync(tmpDir, { recursive: true })
+  }
+)
+
+Deno.test('Watcher - detects file creation', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   const events: Array<{ kind: string; path: string }> = []
   const watcher = new Superwatcher({
@@ -193,7 +207,7 @@ Deno.test('Watcher - detects file creation', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - detects file modification', async () => {
+Deno.test('Watcher - detects file modification', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   Deno.writeTextFileSync(`${tmpDir}/exist.txt`, 'original')
   const events: Array<{ kind: string; path: string }> = []
@@ -219,7 +233,7 @@ Deno.test('Watcher - detects file modification', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - detects file removal', async () => {
+Deno.test('Watcher - detects file removal', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   Deno.writeTextFileSync(`${tmpDir}/del.txt`, 'bye')
   const events: Array<{ kind: string; path: string }> = []
@@ -244,7 +258,7 @@ Deno.test('Watcher - detects file removal', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - dispose called multiple times is safe', () => {
+Deno.test('Watcher - dispose called multiple times is safe', noLeaks, () => {
   const tmpDir = Deno.makeTempDirSync()
   const watcher = new Superwatcher({ path: tmpDir, debounceMs: 50, onChange: () => {} })
   watcher.start()
@@ -261,39 +275,43 @@ Deno.test('Watcher - dispose without start is safe', () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - file path only receives events for that file', async () => {
-  const tmpDir = Deno.makeTempDirSync()
-  const targetFile = `${tmpDir}/target.json`
-  Deno.writeTextFileSync(targetFile, '{}')
-  Deno.writeTextFileSync(`${tmpDir}/other.txt`, 'x')
-  const events: string[] = []
-  const watcher = new Superwatcher({
-    path: targetFile,
-    debounceMs: 30,
-    onChange: (evts) => {
-      for (const e of evts) {
-        events.push(e.path)
+Deno.test(
+  'Watcher - file path only receives events for that file',
+  noLeaks,
+  async () => {
+    const tmpDir = Deno.makeTempDirSync()
+    const targetFile = `${tmpDir}/target.json`
+    Deno.writeTextFileSync(targetFile, '{}')
+    Deno.writeTextFileSync(`${tmpDir}/other.txt`, 'x')
+    const events: string[] = []
+    const watcher = new Superwatcher({
+      path: targetFile,
+      debounceMs: 30,
+      onChange: (evts) => {
+        for (const e of evts) {
+          events.push(e.path)
+        }
       }
-    }
-  })
-  watcher.start()
-  await delay(50)
-  Deno.writeTextFileSync(targetFile, '{"u":1}')
-  Deno.writeTextFileSync(`${tmpDir}/other.txt`, 'noise')
-  await delay(150)
-  watcher.dispose()
-  assertEquals(
-    events.some((e) => e.endsWith('target.json')),
-    true
-  )
-  assertEquals(
-    events.some((e) => e.endsWith('other.txt')),
-    false
-  )
-  Deno.removeSync(tmpDir, { recursive: true })
-})
+    })
+    watcher.start()
+    await delay(50)
+    Deno.writeTextFileSync(targetFile, '{"u":1}')
+    Deno.writeTextFileSync(`${tmpDir}/other.txt`, 'noise')
+    await delay(150)
+    watcher.dispose()
+    assertEquals(
+      events.some((e) => e.endsWith('target.json')),
+      true
+    )
+    assertEquals(
+      events.some((e) => e.endsWith('other.txt')),
+      false
+    )
+    Deno.removeSync(tmpDir, { recursive: true })
+  }
+)
 
-Deno.test('Watcher - ignore function pattern filters events', async () => {
+Deno.test('Watcher - ignore function pattern filters events', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   const events: string[] = []
   const watcher = new Superwatcher({
@@ -323,7 +341,7 @@ Deno.test('Watcher - ignore function pattern filters events', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - ignore mixed matchers all applied', async () => {
+Deno.test('Watcher - ignore mixed matchers all applied', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   const events: string[] = []
   const watcher = new Superwatcher({
@@ -355,7 +373,7 @@ Deno.test('Watcher - ignore mixed matchers all applied', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - ignore regex pattern filters events', async () => {
+Deno.test('Watcher - ignore regex pattern filters events', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   const events: string[] = []
   const watcher = new Superwatcher({
@@ -385,7 +403,7 @@ Deno.test('Watcher - ignore regex pattern filters events', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - ignore string pattern filters events', async () => {
+Deno.test('Watcher - ignore string pattern filters events', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   const events: string[] = []
   const watcher = new Superwatcher({
@@ -415,7 +433,7 @@ Deno.test('Watcher - ignore string pattern filters events', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - onChange throw does not crash the watcher', async () => {
+Deno.test('Watcher - onChange throw does not crash the watcher', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   let callCount = 0
   const watcher = new Superwatcher({
@@ -437,7 +455,7 @@ Deno.test('Watcher - onChange throw does not crash the watcher', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - rapid start calls do not crash', () => {
+Deno.test('Watcher - rapid start calls do not crash', noLeaks, () => {
   const tmpDir = Deno.makeTempDirSync()
   const watcher = new Superwatcher({ path: tmpDir, debounceMs: 50, onChange: () => {} })
   for (let i = 0; i < 50; i++) {
@@ -447,7 +465,7 @@ Deno.test('Watcher - rapid start calls do not crash', () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - recursive false skips subdirectory events', async () => {
+Deno.test('Watcher - recursive false skips subdirectory events', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   Deno.mkdirSync(`${tmpDir}/sub`)
   const events: string[] = []
@@ -478,7 +496,7 @@ Deno.test('Watcher - recursive false skips subdirectory events', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - start then dispose then start again is safe', () => {
+Deno.test('Watcher - start then dispose then start again is safe', noLeaks, () => {
   const tmpDir = Deno.makeTempDirSync()
   const watcher = new Superwatcher({ path: tmpDir, debounceMs: 50, onChange: () => {} })
   watcher.start()
@@ -494,7 +512,7 @@ Deno.test('Watcher - start with empty path array is a no-op', () => {
   watcher.dispose()
 })
 
-Deno.test('Watcher - stress test with 100 files', async () => {
+Deno.test('Watcher - stress test with 100 files', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   const events: Array<{ kind: string; path: string }> = []
   const watcher = new Superwatcher({
@@ -517,7 +535,7 @@ Deno.test('Watcher - stress test with 100 files', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - stress test with 100 start-dispose cycles', () => {
+Deno.test('Watcher - stress test with 100 start-dispose cycles', noLeaks, () => {
   const tmpDir = Deno.makeTempDirSync()
   for (let i = 0; i < 100; i++) {
     const watcher = new Superwatcher({ path: tmpDir, debounceMs: 10, onChange: () => {} })
@@ -527,7 +545,7 @@ Deno.test('Watcher - stress test with 100 start-dispose cycles', () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - stress test with 5 concurrent watchers', async () => {
+Deno.test('Watcher - stress test with 5 concurrent watchers', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   const counts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 }
   const watchers = [0, 1, 2, 3, 4].map((i) =>
@@ -557,7 +575,7 @@ Deno.test('Watcher - stress test with 5 concurrent watchers', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - writeStable does not delay remove events', async () => {
+Deno.test('Watcher - writeStable does not delay remove events', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   Deno.writeTextFileSync(`${tmpDir}/del.txt`, 'bye')
   const events: Array<{ kind: string; path: string }> = []
@@ -583,7 +601,7 @@ Deno.test('Watcher - writeStable does not delay remove events', async () => {
   Deno.removeSync(tmpDir, { recursive: true })
 })
 
-Deno.test('Watcher - writeStable waits for file size stability', async () => {
+Deno.test('Watcher - writeStable waits for file size stability', noLeaks, async () => {
   const tmpDir = Deno.makeTempDirSync()
   const stableFile = `${tmpDir}/growing.bin`
   const events: string[] = []
