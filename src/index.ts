@@ -1,19 +1,39 @@
 import { Utils } from '@app/utils.ts'
 import type * as Types from '@app/types.ts'
 
+/**
+ * Debounced file system watcher.
+ * @description Watches paths and batches events with debounce.
+ */
 export class Superwatcher {
+  /** Debounce delay in milliseconds */
   private readonly debounceMs: number
+  /** Specific file names to watch */
   private readonly fileTargets: Set<string>
+  /** Compiled ignore matcher functions */
   private readonly ignoreMatchers: Types.IgnoreMatcherFn[]
+  /** Batched event change callback */
   private readonly onChange: (events: Types.WatchEvent[]) => void
+  /** Events buffered during debounce */
   private readonly pendingPaths: Map<string, Types.PendingEntry> = new Map()
+  /** Watch subdirectories recursively */
   private readonly recursive: boolean
+  /** Active write stability poll timers */
   private readonly sizePollers: Map<string, Types.TimerId> = new Map()
+  /** Resolved directory paths to watch */
   private readonly watchPaths: string[]
+  /** Write stability polling configuration */
   private readonly writeStable: Types.WriteStable | undefined
+  /** Active debounce flush timer */
   private debounceTimer: Types.TimerId | null = null
+  /** Underlying Deno file system watcher */
   private watcher: Deno.FsWatcher | null = null
 
+  /**
+   * Create a Superwatcher instance.
+   * @description Validates options and resolves watch paths.
+   * @param options - Watcher configuration options
+   */
   constructor(options: Types.WatcherOptions) {
     Utils.validateOptions(options)
     const rawPaths = Array.isArray(options.path)
@@ -23,6 +43,11 @@ export class Superwatcher {
     this.watchPaths = []
     this.recursive = options.recursive ?? true
     for (const targetPath of rawPaths) {
+      try {
+        Deno.statSync(targetPath)
+      } catch {
+        throw new Deno.errors.NotFound(`Cannot watch '${targetPath}' because it does not exist`)
+      }
       const normalized = Utils.normalize(Deno.realPathSync(targetPath))
       const stat = Deno.statSync(normalized)
       if (stat.isFile) {
@@ -42,6 +67,7 @@ export class Superwatcher {
     this.ignoreMatchers = (options.ignore ?? []).map((matcher) => this.compileMatcher(matcher))
   }
 
+  /** Stop watching and release resources */
   dispose(): void {
     if (this.debounceTimer !== null) {
       clearTimeout(this.debounceTimer)
@@ -60,6 +86,7 @@ export class Superwatcher {
     this.watcher = null
   }
 
+  /** Begin watching configured paths */
   start(): void {
     if (this.watchPaths.length === 0) {
       return
@@ -75,6 +102,12 @@ export class Superwatcher {
     }
   }
 
+  /**
+   * Compile an ignore matcher.
+   * @description Converts string, RegExp, or function to matcher.
+   * @param matcher - Raw ignore matcher pattern
+   * @returns Compiled matcher function
+   */
   private compileMatcher(matcher: Types.IgnoreMatcher): Types.IgnoreMatcherFn {
     if (typeof matcher === 'function') {
       return matcher
@@ -88,6 +121,7 @@ export class Superwatcher {
     return () => false
   }
 
+  /** Flush pending events to onChange callback */
   private flush(): void {
     this.debounceTimer = null
     if (this.pendingPaths.size === 0) {
@@ -124,6 +158,12 @@ export class Superwatcher {
     }
   }
 
+  /**
+   * Check if path is ignored.
+   * @description Tests path against all compiled ignore matchers.
+   * @param filePath - Normalized file path to check
+   * @returns True if path matches any ignore rule
+   */
   private isIgnored(filePath: string): boolean {
     for (const matchFn of this.ignoreMatchers) {
       if (matchFn(filePath)) {
@@ -133,6 +173,7 @@ export class Superwatcher {
     return false
   }
 
+  /** Consume watcher events asynchronously */
   private async listen(): Promise<void> {
     if (!this.watcher) {
       return
@@ -160,6 +201,12 @@ export class Superwatcher {
     }
   }
 
+  /**
+   * Poll file size for stability.
+   * @description Waits until file size stops changing before callback.
+   * @param filePath - Path to poll for size stability
+   * @param callback - Called when file size is stable
+   */
   private pollWriteStable(filePath: string, callback: () => void): void {
     if (!this.writeStable) {
       callback()
@@ -193,6 +240,11 @@ export class Superwatcher {
     this.sizePollers.set(filePath, setTimeout(poll, interval))
   }
 
+  /**
+   * Resolve remove to modify if exists.
+   * @description Corrects false remove events when file still exists.
+   * @param entry - Pending entry to resolve
+   */
   private resolveEntry(entry: Types.PendingEntry): void {
     if (entry.kind === 'remove') {
       try {
@@ -204,6 +256,7 @@ export class Superwatcher {
     }
   }
 
+  /** Schedule debounced flush of pending events */
   private scheduleFlush(): void {
     if (this.debounceTimer !== null) {
       clearTimeout(this.debounceTimer)
@@ -213,6 +266,12 @@ export class Superwatcher {
     }, this.debounceMs)
   }
 
+  /**
+   * Buffer or update a pending event.
+   * @description Merges remove-then-change sequences into modify.
+   * @param filePath - Normalized file path
+   * @param kind - File system event kind
+   */
   private setPending(filePath: string, kind: Types.EventKind): void {
     const existing = this.pendingPaths.get(filePath)
     if (existing && existing.kind === 'remove' && kind !== 'remove') {
@@ -223,4 +282,5 @@ export class Superwatcher {
   }
 }
 
+/** Re-export all public type definitions */
 export type * from '@app/types.ts'

@@ -105,7 +105,7 @@ Deno.test('Watcher - constructor throws on no arguments', () => {
   assertThrows(
     () => new (Superwatcher as unknown as new () => Superwatcher)(),
     TypeError,
-    'options must be an object'
+    'Expected options to be an object'
   )
 })
 
@@ -119,7 +119,7 @@ Deno.test('Watcher - constructor throws on null options', () => {
   assertThrows(
     () => new Superwatcher(null as unknown as Types.WatcherOptions),
     TypeError,
-    'options must be an object'
+    'Expected options to be an object'
   )
 })
 

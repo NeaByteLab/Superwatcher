@@ -344,7 +344,7 @@ Deno.test('Utils - validateOptions throws on null options', () => {
   assertThrows(
     () => Utils.validateOptions(null as unknown as Types.WatcherOptions),
     TypeError,
-    'options must be an object'
+    'Expected options to be an object'
   )
 })
 
@@ -383,7 +383,7 @@ Deno.test('Utils - validateOptions throws on null writeStable', () => {
         writeStable: null
       } as unknown as Types.WatcherOptions),
     TypeError,
-    'writeStable must be an object'
+    'Expected writeStable to be an object'
   )
 })
 
@@ -397,7 +397,7 @@ Deno.test('Utils - validateOptions throws on number ignore', () => {
         ignore: 42
       } as unknown as Types.WatcherOptions),
     TypeError,
-    'ignore must be an array'
+    'Expected ignore to be an array'
   )
 })
 
@@ -416,7 +416,7 @@ Deno.test('Utils - validateOptions throws on number options', () => {
   assertThrows(
     () => Utils.validateOptions(42 as unknown as Types.WatcherOptions),
     TypeError,
-    'options must be an object'
+    'Expected options to be an object'
   )
 })
 
@@ -444,7 +444,7 @@ Deno.test('Utils - validateOptions throws on number writeStable', () => {
         writeStable: 500
       } as unknown as Types.WatcherOptions),
     TypeError,
-    'writeStable must be an object'
+    'Expected writeStable to be an object'
   )
 })
 
@@ -528,7 +528,7 @@ Deno.test('Utils - validateOptions throws on string ignore', () => {
         ignore: '.tmp'
       } as unknown as Types.WatcherOptions),
     TypeError,
-    'ignore must be an array'
+    'Expected ignore to be an array'
   )
 })
 
@@ -547,7 +547,7 @@ Deno.test('Utils - validateOptions throws on string options', () => {
   assertThrows(
     () => Utils.validateOptions('watch' as unknown as Types.WatcherOptions),
     TypeError,
-    'options must be an object'
+    'Expected options to be an object'
   )
 })
 
@@ -589,7 +589,7 @@ Deno.test('Utils - validateOptions throws on string writeStable', () => {
         writeStable: 'fast'
       } as unknown as Types.WatcherOptions),
     TypeError,
-    'writeStable must be an object'
+    'Expected writeStable to be an object'
   )
 })
 
@@ -612,7 +612,7 @@ Deno.test('Utils - validateOptions throws on undefined options', () => {
   assertThrows(
     () => Utils.validateOptions(undefined as unknown as Types.WatcherOptions),
     TypeError,
-    'options must be an object'
+    'Expected options to be an object'
   )
 })
 
