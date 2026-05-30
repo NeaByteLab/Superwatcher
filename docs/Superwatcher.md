@@ -31,7 +31,7 @@ watcher.start()
 
 ### `new Superwatcher(options: WatcherOptions)`
 
-Creates a new watcher instance. All options are validated at construction and throw a descriptive `TypeError` on invalid input.
+Creates a new watcher instance. All options are validated at construction and throw a descriptive `TypeError` on invalid input. Throws `Deno.errors.NotFound` if any path does not exist.
 
 ```typescript
 // Watch a directory
